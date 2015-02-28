@@ -1,0 +1,12 @@
+35ce8e38ca3b6371460f85b204258aa0 *DESCRIPTION
+2b7efcf06ca89425daf8470e7ceef596 *LICENSE
+70ee5304b3830c53c3a996bdd2a75cd1 *NAMESPACE
+6cc7fd1736c2251eee2ac48a32bcb621 *R/SpatialLinesToWKBLineString.R
+9bd1ff10042d419c5c9d25be849c2dd5 *R/SpatialPointsToWKBPoint.R
+a2913f90398fe67c5e4aae4d9fad65dc *R/SpatialPolygonsToWKBPolygon.R
+68a34b982b8f462d1d0be1542c5f479e *R/readWKB.R
+c0d7b3014c3cf53b8f8462202e7e5f90 *R/writeEnvelope.R
+06b0eee358592f669c72d8b9e0c0e4e3 *R/writeWKB.R
+b9499efc4faa3dc85d79ff797f7d2165 *man/readWKB.Rd
+cd10928627212cb9867e4835a8389462 *man/writeEnvelope.Rd
+e3bfd7065735512a77b7373fdf093719 *man/writeWKB.Rd
