@@ -1,30 +1,35 @@
 # Convert a SpatialPoints or SpatialPointsDataFrame object
 #  to a well-known binary (WKB) geometry representation of points
 
-#' Convert List of SpatialPoints to WKB MultiPoint
+#' Convert List of SpatialPoints to \acronym{WKB} MultiPoint
 #'
 #' Converts a list of objects of class \code{SpatialPoints} or
-#' \code{SpatialPointsDataFrame} to a list of well-known binary (WKB) geometry
-#' representations of type MultiPoint.
+#' \code{SpatialPointsDataFrame} to a list of well-known binary (\acronym{WKB})
+#' geometry representations of type MultiPoint.
 #'
 #' This function is called by the \code{\link{writeWKB}} function. Call the
 #' \code{\link{writeWKB}} function instead of calling this function directly.
 #'
-#' Use this function when each item in the WKB representation should represent
-#' multiple points. Use \code{\link{SpatialPointsToWKBPoint}} when each item in
-#' the WKB representation should represent only one point.
+#' Use this function when each item in the \acronym{WKB} representation should
+#' represent multiple points. Use \code{\link{SpatialPointsToWKBPoint}} when
+#' each item in the \acronym{WKB} representation should represent only one
+#' point.
 #'
 #' @param obj a \code{list} in which each element is an object of class
 #'   \code{\link[sp:SpatialPoints-class]{SpatialPoints}} or
 #'   \code{\link[sp:SpatialPointsDataFrame-class]{SpatialPointsDataFrame}}.
+#' @param endian The byte order (\code{"big"} or \code{"little"}) for encoding
+#'   numeric types. The default is \code{"little"}.
 #' @return A \code{list} with class \code{AsIs}. The length of the returned list
 #'   is the same as the length of the argument \code{obj}. Each element of the
 #'   returned list is a \code{\link[base]{raw}} vector consisting of a
-#'   well-known binary (WKB) geometry representation of type MultiPoint.
+#'   well-known binary (\acronym{WKB}) geometry representation of type
+#'   MultiPoint.
 #'
-#'   When this function is run in TIBCO Enterprise Runtime for R (TERR), the
-#'   return value has the SpotfireColumnMetaData attribute set to enable TIBCO
-#'   Spotfire to recognize it as a WKB geometry representation.
+#'   When this function is run in TIBCO Enterprise Runtime for R
+#'   (\acronym{TERR}), the return value has the SpotfireColumnMetaData attribute
+#'   set to enable TIBCO Spotfire to recognize it as a \acronym{WKB} geometry
+#'   representation.
 #' @examples
 #' # load package sp
 #' library(sp)
@@ -47,21 +52,30 @@
 #' # calculate envelope columns and cbind to the data frame
 #' coords <- wkb:::ListOfSpatialPointsEnvelope(obj)
 #' ds <- cbind(ds, coords)
-#' @seealso \code{\link{writeWKB}},
-#'   \code{\link{SpatialPointsToWKBPoint}},
+#' @seealso \code{\link{writeWKB}}, \code{\link{SpatialPointsToWKBPoint}},
 #'   \code{\link{ListOfSpatialPointsEnvelope}}
 #' @noRd
-ListOfSpatialPointsToWKBMultiPoint <- function(obj) {
+ListOfSpatialPointsToWKBMultiPoint <- function(obj, endian) {
   wkb <- lapply(X = obj, FUN = function(mypoints) {
     rc <- rawConnection(raw(0), "r+")
     on.exit(close(rc))
-    writeBin(as.raw(c(1, 4, 0, 0, 0)), rc)
+    if(endian == "big") {
+      writeBin(as.raw(0L), rc)
+    } else {
+      writeBin(as.raw(1L), rc)
+    }
+    writeBin(4L, rc, size = 4, endian = endian)
     coords <- mypoints@coords
-    writeBin(nrow(coords), rc, size = 4, endian = "little")
+    writeBin(nrow(coords), rc, size = 4, endian = endian)
     apply(X = coords, MARGIN = 1, FUN = function(coord) {
-      writeBin(as.raw(c(1, 1, 0, 0, 0)), rc)
-      writeBin(coord[1], rc, size = 8, endian = "little")
-      writeBin(coord[2], rc, size = 8, endian = "little")
+      if(endian == "big") {
+        writeBin(as.raw(0L), rc)
+      } else {
+        writeBin(as.raw(1L), rc)
+      }
+      writeBin(1L, rc, size = 4, endian = endian)
+      writeBin(coord[1], rc, size = 8, endian = endian)
+      writeBin(coord[2], rc, size = 8, endian = endian)
       NULL
     })
     rawConnectionValue(rc)
@@ -73,30 +87,34 @@ ListOfSpatialPointsToWKBMultiPoint <- function(obj) {
   I(wkb)
 }
 
-#' Convert SpatialPoints to WKB Point
+#' Convert SpatialPoints to \acronym{WKB} Point
 #'
 #' Converts an object of class \code{SpatialPoints} or
-#' \code{SpatialPointsDataFrame} to a list of well-known binary (WKB) geometry
-#' representations of type Point.
+#' \code{SpatialPointsDataFrame} to a list of well-known binary (\acronym{WKB})
+#' geometry representations of type Point.
 #'
 #' This function is called by the \code{\link{writeWKB}} function. Call the
 #' \code{\link{writeWKB}} function instead of calling this function directly.
 #'
-#' Use this function when each item in the WKB representation should represent
-#' only one point. Use \code{\link{ListOfSpatialPointsToWKBMultiPoint}} when
-#' each item in the WKB representation should represent multiple points.
+#' Use this function when each item in the \acronym{WKB} representation should
+#' represent only one point. Use
+#' \code{\link{ListOfSpatialPointsToWKBMultiPoint}} when each item in the
+#' \acronym{WKB} representation should represent multiple points.
 #'
 #' @param obj an object of class
 #'   \code{\link[sp:SpatialPoints-class]{SpatialPoints}} or
 #'   \code{\link[sp:SpatialPointsDataFrame-class]{SpatialPointsDataFrame}}.
+#' @param endian The byte order (\code{"big"} or \code{"little"}) for encoding
+#'   numeric types. The default is \code{"little"}.
 #' @return A \code{list} with class \code{AsIs}. The length of the returned list
 #'   is the same as the length of the argument \code{obj}. Each element of the
 #'   returned list is a \code{\link[base]{raw}} vector consisting of a
-#'   well-known binary (WKB) geometry representation of type Point.
+#'   well-known binary (\acronym{WKB}) geometry representation of type Point.
 #'
-#'   When this function is run in TIBCO Enterprise Runtime for R (TERR), the
-#'   return value has the SpotfireColumnMetaData attribute set to enable TIBCO
-#'   Spotfire to recognize it as a WKB geometry representation.
+#'   When this function is run in TIBCO Enterprise Runtime for R
+#'   (\acronym{TERR}), the return value has the SpotfireColumnMetaData attribute
+#'   set to enable TIBCO Spotfire to recognize it as a \acronym{WKB} geometry
+#'   representation.
 #' @examples
 #' # create an object of class SpatialPoints
 #' x = c(1, 2, 3, 4, 5)
@@ -116,13 +134,18 @@ ListOfSpatialPointsToWKBMultiPoint <- function(obj) {
 #'   \code{\link{ListOfSpatialPointsToWKBMultiPoint}},
 #'   \code{\link{SpatialPointsEnvelope}}
 #' @noRd
-SpatialPointsToWKBPoint <- function(obj) {
+SpatialPointsToWKBPoint <- function(obj, endian) {
   wkb <- lapply(apply(X = obj@coords, MARGIN = 1, FUN = function(coord) {
     rc <- rawConnection(raw(0), "r+")
     on.exit(close(rc))
-    writeBin(as.raw(c(1, 1, 0, 0, 0)), rc)
-    writeBin(coord[1], rc, size = 8, endian = "little")
-    writeBin(coord[2], rc, size = 8, endian = "little")
+    if(endian == "big") {
+      writeBin(as.raw(0L), rc)
+    } else {
+      writeBin(as.raw(1L), rc)
+    }
+    writeBin(1L, rc, size = 4, endian = endian)
+    writeBin(coord[1], rc, size = 8, endian = endian)
+    writeBin(coord[2], rc, size = 8, endian = endian)
     list(rawConnectionValue(rc))
   }), unlist)
   if(identical(version$language, "TERR")) {
@@ -146,21 +169,21 @@ SpatialPointsToWKBPoint <- function(obj) {
 #' @param obj an object of class
 #'   \code{\link[sp:SpatialPoints-class]{SpatialPoints}} or
 #'   \code{\link[sp:SpatialPointsDataFrame-class]{SpatialPointsDataFrame}}.
-#' @param centerfun function to apply to the x-axis limits and y-axis limits
-#'   of the bounding box to obtain the x-coordinate and y-coordinate of the
-#'   center of the bounding box.
+#' @param centerfun function to apply to the x-axis limits and y-axis limits of
+#'   the bounding box to obtain the x-coordinate and y-coordinate of the center
+#'   of the bounding box.
 #' @return A data frame with six columns named XMax, XMin, YMax, YMin, XCenter,
-#' and YCenter. The first four columns represent the corners of the bounding box
-#' of each object of class \code{SpatialPoints} or
-#' \code{SpatialPointsDataFrame}. The last two columns represent the center of
-#' the bounding box of each object of class \code{SpatialPoints} or
-#' \code{SpatialPointsDataFrame}. The number of rows in the returned data frame
-#' is the same as the length of the argument \code{obj}.
+#'   and YCenter. The first four columns represent the corners of the bounding
+#'   box of each object of class \code{SpatialPoints} or
+#'   \code{SpatialPointsDataFrame}. The last two columns represent the center of
+#'   the bounding box of each object of class \code{SpatialPoints} or
+#'   \code{SpatialPointsDataFrame}. The number of rows in the returned data
+#'   frame is the same as the length of the argument \code{obj}.
 #'
-#'   When this function is run in TIBCO Enterprise Runtime for R (TERR), the
-#'   columns of the returned data frame have the SpotfireColumnMetaData
-#'   attribute set to enable TIBCO Spotfire to recognize them as containing
-#'   envelope information.
+#'   When this function is run in TIBCO Enterprise Runtime for R
+#'   (\acronym{TERR}), the columns of the returned data frame have the
+#'   SpotfireColumnMetaData attribute set to enable TIBCO Spotfire to recognize
+#'   them as containing envelope information.
 #' @seealso \code{\link{writeEnvelope}}
 #'
 #'   Example usage at \code{\link{ListOfSpatialPointsToWKBMultiPoint}}
@@ -191,9 +214,9 @@ ListOfSpatialPointsEnvelope <- function(obj, centerfun = mean) {
 
 #' Envelope of SpatialPoints
 #'
-#' Takes an object of class \code{SpatialPoints} or \code{SpatialPointsDataFrame}
-#' and returns a data frame with six columns representing the envelope of each
-#' point (which is each point itself).
+#' Takes an object of class \code{SpatialPoints} or
+#' \code{SpatialPointsDataFrame} and returns a data frame with six columns
+#' representing the envelope of each point (which is each point itself).
 #'
 #' This function is called by the \code{\link{writeEnvelope}} function. Call the
 #' \code{\link{writeEnvelope}} function instead of calling this function
@@ -209,10 +232,10 @@ ListOfSpatialPointsEnvelope <- function(obj, centerfun = mean) {
 #'   point itself.) The number of rows in the returned data frame is the same as
 #'   the length of the argument \code{obj}.
 #'
-#'   When this function is run in TIBCO Enterprise Runtime for R (TERR), the
-#'   columns of the returned data frame have the SpotfireColumnMetaData
-#'   attribute set to enable TIBCO Spotfire to recognize them as containing
-#'   envelope information.
+#'   When this function is run in TIBCO Enterprise Runtime for R
+#'   (\acronym{TERR}), the columns of the returned data frame have the
+#'   SpotfireColumnMetaData attribute set to enable TIBCO Spotfire to recognize
+#'   them as containing envelope information.
 #' @seealso \code{\link{writeEnvelope}}
 #'
 #'   Example usage at \code{\link{SpatialPointsToWKBPoint}}

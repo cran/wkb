@@ -1,25 +1,26 @@
 # Convert a well-known binary (WKB) geometry representation to an R spatial
 # object
 
-#' Convert WKB to Spatial Objects
+#' Convert \acronym{WKB} to Spatial Objects
 #'
-#' Converts well-known binary (WKB) geometry representations to \code{Spatial}
-#' objects.
+#' Converts well-known binary (\acronym{WKB}) geometry representations to
+#' \code{Spatial} objects.
 #'
 #' @param wkb \code{list} in which each element is a \code{\link[base]{raw}}
-#'   vector consisting of a WKB geometry representation.
+#'   vector consisting of a \acronym{WKB} geometry representation.
 #' @param id character vector of unique identifiers of geometries. The length of
 #'   \code{id} must be the same as the length of the \code{wkb} list.
 #' @param proj4string projection string of class
 #'   \code{\link[sp:CRS-class]{CRS}}.
-#' @details Supported WKB geometry types are Point, LineString, Polygon,
-#'   MultiPoint, MultiLineString, and MultiPolygon. All elements in the
-#'   \code{list} must have the same WKB geometry type. The WKB geometry
-#'   representations must use little-endian byte order.
+#' @details Supported \acronym{WKB} geometry types are Point, LineString,
+#'   Polygon, MultiPoint, MultiLineString, and MultiPolygon. All elements in the
+#'   \code{list} must have the same \acronym{WKB} geometry type. The
+#'   \acronym{WKB} geometry representations may use little-endian or big-endian
+#'   byte order.
 #'
 #'   The argument \code{wkb} may also be a \code{\link[base]{raw}} vector
-#'   consisting of one WKB geometry representation. In that case, the argument
-#'   \code{id} must have length one.
+#'   consisting of one \acronym{WKB} geometry representation. In that case, the
+#'   argument \code{id} must have length one.
 #' @return An object inheriting class \code{\link[sp:Spatial-class]{Spatial}}.
 #'
 #'   The return value may be an object of class
@@ -28,10 +29,11 @@
 #'   \code{\link[sp:SpatialPolygons-class]{SpatialPolygons}}, or a \code{list}
 #'   in which each element is an object of class
 #'   \code{\link[sp:SpatialPoints-class]{SpatialPoints}}. The class of the
-#'   return value depends on the WKB geometry type as shown in the table below.
+#'   return value depends on the \acronym{WKB} geometry type as shown in the
+#'   table below.
 #'
 #'   \tabular{ll}{
-#'   \strong{Type of WKB geometry} \tab \strong{Class of return value}\cr
+#'   \strong{Type of \acronym{WKB} geometry} \tab \strong{Class of return value}\cr
 #'   Point \tab \code{SpatialPoints}\cr
 #'   LineString \tab \code{SpatialLines}\cr
 #'   Polygon \tab \code{SpatialPolygons}\cr
@@ -55,7 +57,7 @@
 #' # create a list of WKB geometry representations of type MultiPoint
 #' wkb <- list(
 #'   as.raw(c(0x01, 0x04, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x01,
-#'            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40,
+#'            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xf0, 0x3f,
 #'            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x40)),
 #'   as.raw(c(0x01, 0x04, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x01,
 #'            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40,
@@ -113,7 +115,7 @@
 #'   id = c("San Francisco", "New York"),
 #'   proj4string = sp::CRS("+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
 #' )
-#' @seealso \code{\link{writeWKB}}
+#' @seealso \code{\link{writeWKB}}, \code{\link{hex2raw}}
 #' @keywords wkb
 #' @export
 #' @importFrom sp CRS
@@ -150,22 +152,24 @@ readWKB <- function(wkb, id = NULL, proj4string = CRS(as.character(NA))) {
     on.exit(close(rc))
     seek(rc, 0L)
     byteOrder <- readByteOrder(rc)
-    if(byteOrder != as.raw(1L)) {
-      stop("Only little endian is supported")
+    if(byteOrder == as.raw(1L)) {
+      endian <- "little"
+    } else {
+      endian <- "big"
     }
-    wkbType <- readWkbType(rc)
+    wkbType <- readWkbType(rc, endian)
     if(wkbType == 1L) {
-      readWkbPoint(rc, Id)
+      readWkbPoint(rc, Id, endian)
     } else if(wkbType == 2L) {
-      readWkbLineString(rc, Id)
+      readWkbLineString(rc, Id, endian)
     } else if(wkbType == 3L) {
-      readWkbPolygon(rc, Id)
+      readWkbPolygon(rc, Id, endian)
     } else if(wkbType == 4L) {
-      readWkbMultiPoint(rc, Id)
+      readWkbMultiPoint(rc, Id, endian)
     } else if(wkbType == 5L) {
-      readWkbMultiLineString(rc, Id)
+      readWkbMultiLineString(rc, Id, endian)
     } else if(wkbType == 6L) {
-      readWkbMultiPolygon(rc, Id)
+      readWkbMultiPolygon(rc, Id, endian)
     } else if(wkbType == 7L) {
       stop("GeometryCollection is not a supported geometry type")
     } else {
@@ -189,111 +193,117 @@ readWKB <- function(wkb, id = NULL, proj4string = CRS(as.character(NA))) {
   }
 }
 
-readWkbMultiPoint <- function(rc, multiPointId) {
-  numPoints <- readInteger(rc)
+readWkbMultiPoint <- function(rc, multiPointId, endian) {
+  numPoints <- readInteger(rc, endian)
   t(vapply(seq_len(numPoints), function(...) {
     byteOrder <- readByteOrder(rc)
-    if(byteOrder != as.raw(1L)) {
-      stop("Only little endian is supported")
+    if(byteOrder == as.raw(1L)) {
+      endian <- "little"
+    } else {
+      endian <- "big"
     }
-    wkbType <- readWkbType(rc)
+    wkbType <- readWkbType(rc, endian)
     if(wkbType != 1L) {
       stop("MultiPoints may contain only Points")
     }
-    readPoint(rc)
+    readPoint(rc, endian)
   }, numeric(2)))
 }
 
 #' @importFrom sp Lines
 #' @importFrom sp Line
-readWkbMultiLineString <- function(rc, multiLineStringId) {
-  numLineStrings <- readInteger(rc)
+readWkbMultiLineString <- function(rc, multiLineStringId, endian) {
+  numLineStrings <- readInteger(rc, endian)
   Lines(unlist(lapply(seq_len(numLineStrings), function(...) {
     byteOrder <- readByteOrder(rc)
-    if(byteOrder != as.raw(1L)) {
-      stop("Only little endian is supported")
+    if(byteOrder == as.raw(1L)) {
+      endian <- "little"
+    } else {
+      endian <- "big"
     }
-    wkbType <- readWkbType(rc)
+    wkbType <- readWkbType(rc, endian)
     if(wkbType != 2L) {
       stop("MultiLineStrings may contain only LineStrings")
     }
-    numPoints <- readInteger(rc)
-    Line(readPoints(rc, numPoints))
+    numPoints <- readInteger(rc, endian)
+    Line(readPoints(rc, numPoints, endian))
   })), multiLineStringId)
 }
 
 #' @importFrom sp Polygons
-readWkbMultiPolygon <- function(rc, multiPolygonId) {
-  numPolygons <- readInteger(rc)
+readWkbMultiPolygon <- function(rc, multiPolygonId, endian) {
+  numPolygons <- readInteger(rc, endian)
   Polygons(unlist(lapply(seq_len(numPolygons), function(...) {
     byteOrder <- readByteOrder(rc)
-    if(byteOrder != as.raw(1L)) {
-      stop("Only little endian is supported")
+    if(byteOrder == as.raw(1L)) {
+      endian <- "little"
+    } else {
+      endian <- "big"
     }
-    wkbType <- readWkbType(rc)
+    wkbType <- readWkbType(rc, endian)
     if(wkbType != 3L) {
       stop("MultiPolygons may contain only Polygons")
     }
-    numRings <- readInteger(rc)
-    readLinearRings(rc, numRings)
+    numRings <- readInteger(rc, endian)
+    readLinearRings(rc, numRings, endian)
   })), multiPolygonId)
 }
 
-readWkbPoint <- function(rc, pointId) {
-  readPoint(rc)
+readWkbPoint <- function(rc, pointId, endian) {
+  readPoint(rc, endian)
 }
 
 #' @importFrom sp Lines
 #' @importFrom sp Line
-readWkbLineString <- function(rc, lineStringId) {
-  numPoints <- readInteger(rc)
-  Lines(list(Line(readPoints(rc, numPoints))), lineStringId)
+readWkbLineString <- function(rc, lineStringId, endian) {
+  numPoints <- readInteger(rc, endian)
+  Lines(list(Line(readPoints(rc, numPoints, endian))), lineStringId)
 }
 
 #' @importFrom sp Polygons
-readWkbPolygon <- function(rc, polygonId) {
-  numRings <- readInteger(rc)
-  Polygons(readLinearRings(rc, numRings), polygonId)
+readWkbPolygon <- function(rc, polygonId, endian) {
+  numRings <- readInteger(rc, endian)
+  Polygons(readLinearRings(rc, numRings, endian), polygonId)
 }
 
-readLinearRings <- function(rc, numRings) {
+readLinearRings <- function(rc, numRings, endian) {
   lapply(seq_len(numRings), function(ringId) {
-    readLinearRing(rc)
+    readLinearRing(rc, endian)
   })
 }
 
 #' @importFrom sp Polygon
-readLinearRing <- function(rc) {
-  numPoints <- readInteger(rc)
-  Polygon(readPoints(rc, numPoints))
+readLinearRing <- function(rc, endian) {
+  numPoints <- readInteger(rc, endian)
+  Polygon(readPoints(rc, numPoints, endian))
 }
 
-readPoints <- function(rc, numPoints) {
+readPoints <- function(rc, numPoints, endian) {
   t(vapply(seq_len(numPoints), function(pointId) {
-    readPoint(rc)
+    readPoint(rc, endian)
   }, numeric(2)))
 }
 
-readPoint <- function(rc) {
-  c(x = readDouble(rc), y = readDouble(rc))
+readPoint <- function(rc, endian) {
+  c(x = readDouble(rc, endian), y = readDouble(rc, endian))
 }
 
 readByteOrder <- function(rc) {
   readByte(rc)
 }
 
-readWkbType <- function(rc) {
-  readInteger(rc)
+readWkbType <- function(rc, endian) {
+  readInteger(rc, endian)
 }
 
 readByte <- function(rc) {
   readBin(rc, what = "raw", size = 1L)
 }
 
-readInteger <- function(rc) {
-  readBin(rc, what = "integer", size = 4L, endian = "little")
+readInteger <- function(rc, endian) {
+  readBin(rc, what = "integer", size = 4L, endian = endian)
 }
 
-readDouble <- function(rc) {
-  readBin(rc, what = "double", size = 8L, endian = "little")
+readDouble <- function(rc, endian) {
+  readBin(rc, what = "double", size = 8L, endian = endian)
 }

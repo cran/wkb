@@ -1,11 +1,11 @@
 # Convert a SpatialLines or SpatialLinesDataFrame object
 #  to a well-known binary (WKB) geometry representation of line segments
 
-#' Convert SpatialLines to WKB MultiLineString
+#' Convert SpatialLines to \acronym{WKB} MultiLineString
 #'
 #' Converts an object of class \code{SpatialLines} or
-#' \code{SpatialLinesDataFrame} to a list of well-known binary (WKB) geometry
-#' representations of type MultiLineString.
+#' \code{SpatialLinesDataFrame} to a list of well-known binary (\acronym{WKB})
+#' geometry representations of type MultiLineString.
 #'
 #' This function is called by the \code{\link{writeWKB}} function. Call the
 #' \code{\link{writeWKB}} function instead of calling this function directly.
@@ -16,14 +16,18 @@
 #' @param obj an object of class
 #'   \code{\link[sp:SpatialLines-class]{SpatialLines}} or
 #'   \code{\link[sp:SpatialLinesDataFrame-class]{SpatialLinesDataFrame}}.
+#' @param endian The byte order (\code{"big"} or \code{"little"}) for encoding
+#'   numeric types. The default is \code{"little"}.
 #' @return A \code{list} with class \code{AsIs}. The length of the returned list
 #'   is the same as the length of the argument \code{obj}. Each element of the
 #'   returned list is a \code{\link[base]{raw}} vector consisting of a
-#'   well-known binary (WKB) geometry representation of type MultiLineString.
+#'   well-known binary (\acronym{WKB}) geometry representation of type
+#'   MultiLineString.
 #'
-#'   When this function is run in TIBCO Enterprise Runtime for R (TERR), the
-#'   return value has the SpotfireColumnMetaData attribute set to enable TIBCO
-#'   Spotfire to recognize it as a WKB geometry representation.
+#'   When this function is run in TIBCO Enterprise Runtime for R
+#'   (\acronym{TERR}), the return value has the SpotfireColumnMetaData attribute
+#'   set to enable TIBCO Spotfire to recognize it as a \acronym{WKB} geometry
+#'   representation.
 #' @examples
 #' # load package sp
 #' library(sp)
@@ -51,20 +55,30 @@
 #' @seealso \code{\link{writeWKB}}, \code{\link{SpatialLinesToWKBLineString}},
 #'   \code{\link{SpatialLinesEnvelope}}
 #' @noRd
-SpatialLinesToWKBMultiLineString <- function(obj) {
+SpatialLinesToWKBMultiLineString <- function(obj, endian) {
   wkb <- lapply(X = obj@lines, FUN = function(mylines) {
     rc <- rawConnection(raw(0), "r+")
     on.exit(close(rc))
-    writeBin(as.raw(c(1, 5, 0, 0, 0)), rc)
+    if(endian == "big") {
+      writeBin(as.raw(0L), rc)
+    } else {
+      writeBin(as.raw(1L), rc)
+    }
+    writeBin(5L, rc, size = 4, endian = endian)
     lineStrings <- mylines@Lines
-    writeBin(length(lineStrings), rc, size = 4, endian = "little")
+    writeBin(length(lineStrings), rc, size = 4, endian = endian)
     lapply(X = lineStrings, FUN = function(myline) {
-      writeBin(as.raw(c(1, 2, 0, 0, 0)), rc)
+      if(endian == "big") {
+        writeBin(as.raw(0L), rc)
+      } else {
+        writeBin(as.raw(1L), rc)
+      }
+      writeBin(2L, rc, size = 4, endian = endian)
       coords <- myline@coords
-      writeBin(nrow(coords), rc, size = 4, endian = "little")
+      writeBin(nrow(coords), rc, size = 4, endian = endian)
       apply(X = coords, MARGIN = 1, FUN = function(coord) {
-        writeBin(coord[1], rc, size = 8, endian = "little")
-        writeBin(coord[2], rc, size = 8, endian = "little")
+        writeBin(coord[1], rc, size = 8, endian = endian)
+        writeBin(coord[2], rc, size = 8, endian = endian)
         NULL
       })
     })
@@ -77,11 +91,11 @@ SpatialLinesToWKBMultiLineString <- function(obj) {
   I(wkb)
 }
 
-#' Convert SpatialLines to WKB LineString
+#' Convert SpatialLines to \acronym{WKB} LineString
 #'
 #' Converts an object of class \code{SpatialLines} or
-#' \code{SpatialLinesDataFrame} to a list of well-known binary (WKB) geometry
-#' representations of type LineString.
+#' \code{SpatialLinesDataFrame} to a list of well-known binary (\acronym{WKB})
+#' geometry representations of type LineString.
 #'
 #' The argument \code{obj} must have only one object of class \code{Lines} in
 #' each position of the \code{list} in slot \code{lines}. If there are multiple
@@ -91,14 +105,18 @@ SpatialLinesToWKBMultiLineString <- function(obj) {
 #' @param obj an object of class
 #'   \code{\link[sp:SpatialLines-class]{SpatialLines}} or
 #'   \code{\link[sp:SpatialLinesDataFrame-class]{SpatialLinesDataFrame}}.
+#' @param endian The byte order (\code{"big"} or \code{"little"}) for encoding
+#'   numeric types. The default is \code{"little"}.
 #' @return A \code{list} with class \code{AsIs}. The length of the returned list
 #'   is the same as the length of the argument \code{obj}. Each element of the
 #'   returned list is a \code{\link[base]{raw}} vector consisting of a
-#'   well-known binary (WKB) geometry representation of type LineString.
+#'   well-known binary (\acronym{WKB}) geometry representation of type
+#'   LineString.
 #'
-#'   When this function is run in TIBCO Enterprise Runtime for R (TERR), the
-#'   return value has the SpotfireColumnMetaData attribute set to enable TIBCO
-#'   Spotfire to recognize it as a WKB geometry representation.
+#'   When this function is run in TIBCO Enterprise Runtime for R
+#'   (\acronym{TERR}), the return value has the SpotfireColumnMetaData attribute
+#'   set to enable TIBCO Spotfire to recognize it as a \acronym{WKB} geometry
+#'   representation.
 #' @examples
 #' # create an object of class SpatialLines
 #' l1 <- data.frame(x = c(1, 2, 3), y = c(3, 2, 2))
@@ -122,11 +140,16 @@ SpatialLinesToWKBMultiLineString <- function(obj) {
 #'   \code{\link{SpatialLinesToWKBMultiLineString}},
 #'   \code{\link{SpatialLinesEnvelope}}
 #' @noRd
-SpatialLinesToWKBLineString <- function(obj) {
+SpatialLinesToWKBLineString <- function(obj, endian) {
   wkb <- lapply(X = obj@lines, FUN = function(mylines) {
     rc <- rawConnection(raw(0), "r+")
     on.exit(close(rc))
-    writeBin(as.raw(c(1, 2, 0, 0, 0)), rc)
+    if(endian == "big") {
+      writeBin(as.raw(0L), rc)
+    } else {
+      writeBin(as.raw(1L), rc)
+    }
+    writeBin(2L, rc, size = 4, endian = endian)
     lineStrings <- mylines@Lines
     if(isTRUE(length(lineStrings) > 1)) {
       stop("Argument obj must have only one object of class Lines in each ",
@@ -136,10 +159,10 @@ SpatialLinesToWKBLineString <- function(obj) {
     }
     myline <- lineStrings[[1]]
     coords <- myline@coords
-    writeBin(nrow(coords), rc, size = 4, endian = "little")
+    writeBin(nrow(coords), rc, size = 4, endian = endian)
     apply(X = coords, MARGIN = 1, FUN = function(coord) {
-      writeBin(coord[1], rc, size = 8, endian = "little")
-      writeBin(coord[2], rc, size = 8, endian = "little")
+      writeBin(coord[1], rc, size = 8, endian = endian)
+      writeBin(coord[2], rc, size = 8, endian = endian)
       NULL
     })
     rawConnectionValue(rc)
@@ -165,20 +188,20 @@ SpatialLinesToWKBLineString <- function(obj) {
 #' @param obj an object of class
 #'   \code{\link[sp:SpatialLines-class]{SpatialLines}} or
 #'   \code{\link[sp:SpatialLinesDataFrame-class]{SpatialLinesDataFrame}}.
-#' @param centerfun function to apply to the x-axis limits and y-axis limits
-#'   of the bounding box to obtain the x-coordinate and y-coordinate of the
-#'   center of the bounding box.
+#' @param centerfun function to apply to the x-axis limits and y-axis limits of
+#'   the bounding box to obtain the x-coordinate and y-coordinate of the center
+#'   of the bounding box.
 #' @return A data frame with six columns named XMax, XMin, YMax, YMin, XCenter,
 #'   and YCenter. The first four columns represent the corners of the bounding
-#'   box of each object of class \code{Lines}. The last two columns represent the
-#'   center of the bounding box of each object of class \code{Lines}. The number of
-#'   rows in the returned data frame is the same as the length of the argument
-#'   \code{obj}.
+#'   box of each object of class \code{Lines}. The last two columns represent
+#'   the center of the bounding box of each object of class \code{Lines}. The
+#'   number of rows in the returned data frame is the same as the length of the
+#'   argument \code{obj}.
 #'
-#'   When this function is run in TIBCO Enterprise Runtime for R (TERR), the
-#'   columns of the returned data frame have the SpotfireColumnMetaData
-#'   attribute set to enable TIBCO Spotfire to recognize them as containing
-#'   envelope information.
+#'   When this function is run in TIBCO Enterprise Runtime for R
+#'   (\acronym{TERR}), the columns of the returned data frame have the
+#'   SpotfireColumnMetaData attribute set to enable TIBCO Spotfire to recognize
+#'   them as containing envelope information.
 #' @seealso \code{\link{writeEnvelope}}
 #'
 #'   Example usage at \code{\link{SpatialLinesToWKBMultiLineString}}
