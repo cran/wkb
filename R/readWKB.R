@@ -135,8 +135,14 @@ readWKB <- function(wkb, id = NULL, proj4string = CRS(as.character(NA))) {
   if(!all(vapply(X = wkb, FUN = inherits, FUN.VALUE = logical(1), "raw"))) {
     stop("Each element of wkb must be a raw vector")
   }
+  namesSpecified <- TRUE
   if(is.null(id)) {
-    id <- as.character(seq_along(wkb))
+    if(is.null(names(wkb))) {
+      namesSpecified <- FALSE
+      id <- as.character(seq_along(wkb))
+    } else {
+      id <- names(wkb)
+    }
   }
   if(!identical(length(wkb), length(id))) {
     stop("wkb and id must have same length")
@@ -159,13 +165,13 @@ readWKB <- function(wkb, id = NULL, proj4string = CRS(as.character(NA))) {
     }
     wkbType <- readWkbType(rc, endian)
     if(wkbType == 1L) {
-      readWkbPoint(rc, Id, endian)
+      readWkbPoint(rc, endian)
     } else if(wkbType == 2L) {
       readWkbLineString(rc, Id, endian)
     } else if(wkbType == 3L) {
       readWkbPolygon(rc, Id, endian)
     } else if(wkbType == 4L) {
-      readWkbMultiPoint(rc, Id, endian)
+      readWkbMultiPoint(rc, endian)
     } else if(wkbType == 5L) {
       readWkbMultiLineString(rc, Id, endian)
     } else if(wkbType == 6L) {
@@ -176,13 +182,19 @@ readWKB <- function(wkb, id = NULL, proj4string = CRS(as.character(NA))) {
       stop("Supported geometry types are Point, LineString, Polygon, MultiPoint, MultiLineString, and MultiPolygon")
     }
   }, SIMPLIFY = FALSE, USE.NAMES = FALSE)
-  objClass <- unique(vapply(obj, class, character(1)))
+  objClass <- unique(vapply(obj, function(x) class(x)[1], character(1)))
   if(isTRUE(length(objClass) > 1)) {
     stop("Elements of wkb cannot have different geometry types")
   }
   if(objClass == "numeric") {
+    if(namesSpecified) {
+      names(obj) <- id
+    }
     SpatialPoints(do.call("rbind", obj), proj4string = proj4string)
   } else if(objClass == "matrix" || objClass == "data.frame") {
+    if(namesSpecified) {
+      names(obj) <- id
+    }
     lapply(X = obj, FUN = SpatialPoints, proj4string = proj4string)
   } else if(objClass == "Lines") {
     SpatialLines(obj, proj4string = proj4string)
@@ -193,7 +205,7 @@ readWKB <- function(wkb, id = NULL, proj4string = CRS(as.character(NA))) {
   }
 }
 
-readWkbMultiPoint <- function(rc, multiPointId, endian) {
+readWkbMultiPoint <- function(rc, endian) {
   numPoints <- readInteger(rc, endian)
   t(vapply(seq_len(numPoints), function(...) {
     byteOrder <- readByteOrder(rc)
@@ -249,7 +261,7 @@ readWkbMultiPolygon <- function(rc, multiPolygonId, endian) {
   })), multiPolygonId)
 }
 
-readWkbPoint <- function(rc, pointId, endian) {
+readWkbPoint <- function(rc, endian) {
   readPoint(rc, endian)
 }
 
